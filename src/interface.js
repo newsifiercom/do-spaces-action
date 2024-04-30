@@ -19,23 +19,45 @@ class S3Interface {
 
 	async upload(file, path) {
 		return new Promise((resolve, reject) => {
-
 			const fileStream = fs.createReadStream(file)
 
-			const options = {
-				Body: fileStream,
+			const params = {
 				Bucket: this.bucket,
-				Key: path.replace(/\\/g, '/'),
-				ACL: this.permission,
-				ContentType: lookup(file) || 'text/plain'
+				Key: path.replace(/\\/g, '/')
 			}
 
-			this.s3.upload(options, (err, data) => {
+			this.s3.headObject(params, (err, data) => {
 				if (err) {
-					return reject(err)
-				}
+					if (err.code === 'NotFound') {
 
-				resolve(data)
+						const options = {
+							Body: fileStream,
+							Bucket: this.bucket,
+							Key: path.replace(/\\/g, '/'),
+							ACL: this.permission,
+							ContentType: lookup(file) || 'text/plain'
+						}
+
+						this.s3.upload(options, (err, data) => {
+							if (err) {
+								return reject(err)
+							}
+
+							resolve(data)
+						})
+
+						console.log('File does not exist.')
+					} else {
+						// Handle other errors
+						console.log('Error', err)
+
+						reject(err)
+					}
+				} else {
+					console.log('File exists.', data)
+
+					resolve(data)
+				}
 			})
 		})
 	}
